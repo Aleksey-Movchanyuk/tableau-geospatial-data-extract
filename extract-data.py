@@ -10,7 +10,7 @@ from fiona.crs import from_epsg
 
 # Before your code
 import os
-os.environ['SHAPE_ENCODING'] = "ISO-8859-1"
+os.environ['SHAPE_ENCODING'] = "utf-8"
 
 
 def create_geo_test():
