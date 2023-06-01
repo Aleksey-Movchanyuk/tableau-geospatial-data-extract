@@ -1,0 +1,5 @@
+tableauhyperapi
+pandas
+openpyxl
+shapely
+geopandas
