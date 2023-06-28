@@ -50,11 +50,6 @@ def get_list_of_tables():
             print(connection.catalog.get_schema_names())
             print(connection.catalog.get_table_names('Extract'))
 
-            #table_names = connection.execute_list_query("""
-            #    SELECT table_name 
-            #    FROM information_schema.tables
-            #""")
-            #print(table_names)
 
 
 def extract_all_data():
