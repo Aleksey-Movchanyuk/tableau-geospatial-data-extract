@@ -1,3 +1,6 @@
+import numpy as np
+import tableauhyperapi
+
 from tableauhyperapi import HyperProcess, Connection, Inserter, Telemetry, CreateMode, escape_name, TableDefinition, TableName, SqlType, NOT_NULLABLE
 from datetime import date
 import pandas as pd
@@ -45,20 +48,19 @@ def create_geo_test():
 
 def get_list_of_tables():
     with HyperProcess(telemetry=Telemetry.SEND_USAGE_DATA_TO_TABLEAU) as hyper:
-        with Connection(endpoint=hyper.endpoint, database='Diaspora.hyper') as connection:
+        with Connection(endpoint=hyper.endpoint, database='Turnout.hyper') as connection:
 
             print(connection.catalog.get_schema_names())
             print(connection.catalog.get_table_names('Extract'))
 
 
-
 def extract_all_data():
     with HyperProcess(Telemetry.SEND_USAGE_DATA_TO_TABLEAU) as hyper:
-        with Connection(hyper.endpoint, 'Diaspora.hyper', CreateMode.NONE) as connection:
+        with Connection(hyper.endpoint, 'Turnout.hyper', CreateMode.NONE) as connection:
             result = connection.execute_query("""
                 SELECT 
                     *
-                FROM "Extract"."OCHA town names export _06AD206A7F494F0E8CF685CB084C9CC3"
+                FROM "Extract"."Excluded_FE3C6BC01A664D2D9F75343C021A9987"
             """)
 
 
@@ -75,37 +77,60 @@ def extract_all_data():
             df.columns = [col.unescaped.replace('"', "'") for col in df.columns]         
 
             # Export the DataFrame to a CSV file.
-            df.to_csv('OCHA town names export.csv', index=False)
-
+            df.to_csv('Excluded.csv', index=False)
 
 
 def extract_all_rows_geometry():
     with HyperProcess(Telemetry.SEND_USAGE_DATA_TO_TABLEAU) as hyper:
-        with Connection(hyper.endpoint, 'Diaspora.hyper', CreateMode.NONE) as connection:
-            # Read all rows from the table.
-            all_data = connection.execute_list_query("""
-                SELECT 
-                    "OBJECTID",
-                    "OBJECTID_1",
-                    CAST("Geometry" AS text) as "Geometry"
-                FROM "Extract"."lbn_admbnda_adm3_cdr_20200810.shp_4A76AD2F61704F848AD73DC98D6C556A"
-            """)
+        with Connection(hyper.endpoint, 'FinalTurnout.hyper', CreateMode.NONE) as connection:
+            result = connection.execute_query("""
+                SELECT *
+                FROM "Extract"."lbn_admbnda_adm2_cdr_20200810.shp_18FA72C8C9EA4F829200F347FFA844CC"
+                LIMIT 1
+                """)
 
-            all_rows: pd.DataFrame = pd.DataFrame(all_data)
-            all_rows.columns = ['OBJECTID', 'OBJECTID_1', 'Geometry']
+            # Get column names from the schema of the result.
+            column_names = [column.name.unescaped for column in result.schema.columns if column.name.unescaped != "Geometry"]
+            result.close()
+
+            # Convert the list of column names to a comma-separated string.
+            column_names_str = ', '.join(f'"{name}"' for name in column_names)
+
+            sql = f"""
+                SELECT 
+                    {column_names_str},
+                    CAST("Geometry" AS text) as "Geometry"
+                FROM "Extract"."lbn_admbnda_adm2_cdr_20200810.shp_18FA72C8C9EA4F829200F347FFA844CC"
+                """
+
+            # Read all rows from the table.
+            all_data = connection.execute_query(sql)
+
+            # Get column names from the schema of the result.
+            column_names = [column.name.unescaped for column in all_data.schema.columns]
+
+            # Create a pandas DataFrame from the rows and column names.
+            all_rows: pd.DataFrame = pd.DataFrame(list(all_data), columns=column_names)
+
             all_rows['Geometry'] = all_rows['Geometry'].apply(loads)
 
             # Export the DataFrame to a CSV file.
-            all_rows.to_csv('lbn_admbnda_adm3_cdr_20200810.shp.csv', index=False)
+            all_rows.to_csv('lbn_admbnda_adm2_cdr_20200810.shp.csv', index=False)
+
+            # Get all column names except 'Geometry'
+            cols_to_convert = all_rows.columns.difference(['Geometry'])
+
+            # Convert selected columns to string
+            all_rows[cols_to_convert] = all_rows[cols_to_convert].astype(str)
 
 
             # Create a new Shapefile
             gdf = gpd.GeoDataFrame(all_rows, geometry='Geometry')
-            gdf.to_file('lbn_admbnda_adm3_cdr_20200810.shp')
+            gdf.to_file('lbn_admbnda_adm2_cdr_20200810.shp')
 
 
 
 if __name__ == "__main__":
     #get_list_of_tables()
-    #extract_all_data()
-    extract_all_rows_geometry()
+    extract_all_data()
+    #extract_all_rows_geometry()
